@@ -1,0 +1,26 @@
+{
+  "parser": "babel-eslint",
+  "rules": {
+    "indent": [
+      2,
+      2,
+      {
+        "SwitchCase": 1
+      }
+    ],
+    "max-len": [
+      2,
+      150
+    ],
+    "valid-jsdoc": 2,
+    "camelcase": [
+      2,
+      {
+        "properties": "never"
+      }
+    ],
+    "linebreak-style": 0,
+    "comma-dangle": 0,
+    "no-trailing-spaces": 2
+  }
+}
