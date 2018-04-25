@@ -8,6 +8,7 @@
                  :w="widget.w"
                  :h="widget.h"
                  :i="widget.i"
+                 :s="widget.s"
                  :key="widget.i"
                  :title="widget.title"
                  :isLock="widget.isLock"
@@ -101,8 +102,6 @@
         } else {
           setLayoutColumns(layout, 3)
         }
-
-        // 2. 노드 위젯에 새로운 스타일 적용
       }
     },
     watch: {}

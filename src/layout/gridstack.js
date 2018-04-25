@@ -25,9 +25,12 @@
         'with `' + newName + '`. It will be **completely** removed in v1.0.')
       return f.apply(this, arguments)
     }
-    wrapper.prototype = f.prototype
 
-    return wrapper
+    // 프로토타입이 없으면 래퍼 클래스를 리턴하지 않는다.
+    if (f.prototype) {
+      wrapper.prototype = f.prototype
+      return wrapper
+    }
   }
 
   var obsoleteOpts = function (oldName, newName) {
@@ -40,10 +43,17 @@
       return !(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y)
     },
 
-    sort: function (nodes, dir, width) {
-      width = width || _.chain(nodes).map(function (node) { return node.x + node.width }).max().value()
-      dir = dir != -1 ? 1 : -1
-      return _.sortBy(nodes, function (n) { return dir * (n.x + n.y * width) })
+    sort: function (nodes) {
+      // width = width || _.chain(nodes).map(function (node) { return node.x + node.width }).max().value()
+      // dir = dir != -1 ? 1 : -1
+      // return _.sortBy(nodes, function (n) { return dir * (n.x + n.y * width) })
+
+      // const arrSortNodes = _.sortBy(nodes, function (n) {
+      //   console.log('Node info -> ', n)
+      //   return dir * (n.x + n.y * width)
+      // })
+      nodes.sort((beforeWidget, afterWidget) => beforeWidget.seq - afterWidget.seq)
+      return nodes
     },
 
     createStylesheet: function (id) {
@@ -190,24 +200,57 @@
     this.float = true
   }
 
-  GridStackEngine.prototype.commit = function () {
-    if (this._updateCounter !== 0) {
-      this._updateCounter = 0
-      this.float = this._float
-      this._packNodes()
-      this._notify()
-    }
-  }
+  // 이 프로토타입은 사용하지 않습니다.
+  // GridStackEngine.prototype.commit = function () {
+  //   if (this._updateCounter !== 0) {
+  //     this._updateCounter = 0
+  //     this.float = this._float
+  //     this._packNodes()
+  //     this._notify()
+  //   }
+  // }
 
   // For Meteor support: https://github.com/troolee/gridstack.js/pull/272
   GridStackEngine.prototype.getNodeDataByDOMEl = function (el) {
     return _.find(this.nodes, function (n) { return el.get(0) === n.el.get(0) })
   }
 
-  GridStackEngine.prototype._fixCollisions = function (node) {
-    var self = this
-    this._sortNodes(-1)
+  GridStackEngine.prototype._swapWidgets = function (target, x, y) {
+    // 위젯 순서 변경하기
+    for (const widget of this.nodes) {
+      // 동일한 위치에 위젯이 존재하는 경우
+      if (widget.x === x && widget.y === y) {
+        // 잠겨있는 위젯인가?
+        if (widget.locked) {
+          return false
+        }
 
+        // To widget 순위 변경
+        const beforeSeq = widget.seq
+        widget.seq = target.seq
+        target.seq = beforeSeq
+
+        // To widget 좌표 정보 변경
+        widget.x = target.x
+        widget.y = target.y
+        widget.lastTriedX = target.x
+        widget.lastTriedY = target.y
+
+        // 스타일 업데이트 시 반영
+        widget._dirty = true
+      }
+    }
+
+    // 노드 순서 정렬
+    this._sortNodes()
+
+    // 리턴
+    return true
+  }
+
+  GridStackEngine.prototype._fixCollisions = function (node) {
+    // 현재 위젯들을 정렬
+    this._sortNodes(-1)
     var nn = node
     var hasLocked = Boolean(_.find(this.nodes, function (n) { return n.locked }))
     if (!this.float && !hasLocked) {
@@ -218,8 +261,7 @@
       if (typeof collisionNode == 'undefined') {
         return
       }
-      this.moveNode(collisionNode, collisionNode.x, node.y + node.height,
-        collisionNode.width, collisionNode.height, true)
+      this.moveNode(collisionNode, collisionNode.x, node.y + node.height, collisionNode.width, collisionNode.height, true)
     }
   }
 
@@ -236,6 +278,7 @@
   }
 
   GridStackEngine.prototype._packNodes = function () {
+    // 노드 정렬
     this._sortNodes()
 
     if (this.float) {
@@ -259,10 +302,14 @@
         }
       }, this))
     } else {
+      // 모든 위젯을 조회한다.
       _.each(this.nodes, _.bind(function (n, i) {
+        // 위젯이 잠겨있으면 리턴
         if (n.locked) {
           return
         }
+
+        // 위젯의 Row가 0보다 크다면?
         while (n.y > 0) {
           var newY = n.y - 1
           var canBeMoved = i === 0
@@ -287,7 +334,6 @@
 
   GridStackEngine.prototype._prepareNode = function (node, resizing) {
     node = _.defaults(node || {}, {width: 1, height: 1, x: 0, y: 0})
-
     node.x = parseInt('' + node.x)
     node.y = parseInt('' + node.y)
     node.width = parseInt('' + node.width)
@@ -325,6 +371,7 @@
     return node
   }
 
+  // 위치가 변경되거나 스타일이 변경된 위젯이 있으면 변경된 정보를 적용합니다.
   GridStackEngine.prototype._notify = function () {
     var args = Array.prototype.slice.call(arguments, 0)
     args[0] = typeof args[0] === 'undefined' ? [] : [args[0]]
@@ -333,6 +380,7 @@
       return
     }
     var deletedNodes = args[0].concat(this.getDirtyNodes())
+
     this.onchange(deletedNodes, args[1])
   }
 
@@ -347,6 +395,7 @@
     return _.filter(this.nodes, function (n) { return n._dirty })
   }
 
+  // 이 프로토타입 메서드는 사용하지 않습니다.
   GridStackEngine.prototype.addNode = function (node, triggerAddEvent) {
     node = this._prepareNode(node)
 
@@ -395,16 +444,22 @@
     this._notify(node, detachNode)
   }
 
+  /* 위젯이 움직일 수 있는 위치인지 판단합니다. */
   GridStackEngine.prototype.canMoveNode = function (node, x, y, width, height) {
+    // 위젯의 위치가 이전과 동일하거나 너비, 높이의 값이 최소 또는 최대치 범위를 벗어난 경우는 불가능
     if (!this.isNodeChangedPosition(node, x, y, width, height)) {
       return false
     }
+
+    // Locked이 걸려있는 노드 검색
     var hasLocked = Boolean(_.find(this.nodes, function (n) { return n.locked }))
 
+    // 그리드의 높이가 무제한이고 잠긴 위젯이 없으면 이동 가능
     if (!this.height && !hasLocked) {
       return true
     }
 
+    // 복사본 위젯 생성
     var clonedNode
     var clone = new GridStackEngine(
       this.width,
@@ -471,43 +526,97 @@
     return true
   }
 
+  // 노드에 정의되어 있는 우선순위를 기준으로 레이아웃을 다시 조절합니다.
+  GridStackEngine.prototype._updateLayoutFromSeq = function () {
+    // 위젯을 배치할 행, 열 변수
+    let currentCol = 0
+    let currentRow = 0
+
+    // 레이아웃 컬럼과 위젯 객체
+    const nodes = this.nodes
+    const layoutColumns = this.width
+
+    for (let i = 0, max = nodes.length; i < max; i++) {
+      // X축 좌표를 저장하는 변수 선언
+      let currentX = 0
+      const currentNode = nodes[i]
+
+      // 첫번째 노드라면 currentRow 업데이트 후 위치 지정
+      if (i === 0) {
+        currentCol += currentNode.width
+      } else {
+        // (현재 Row 너비 + 현재 노드 너비) / 그리드 컬럼 갯수 => 아래로 내릴지? 지금 Row에 추가할지?
+        let whetherCheck = Math.floor(layoutColumns / (currentCol + currentNode.width))
+
+        // 변경 체크가 0일 경우, 다음 Row로 내리는 것으로 판단한다
+        if (whetherCheck === 0) {
+          // 현재 Row 너비 업데이트
+          currentCol = currentNode.width
+          currentRow += 1
+        } else {
+          // 이전노드 좌표 가져오기
+          const beforeNode = nodes[i - 1]
+
+          // 현재 Row 너비 업데이트
+          currentCol += currentNode.width
+
+          // CurrentRow - 1이 새로운 X축 좌표
+          currentX = beforeNode.x + beforeNode.width
+        }
+      }
+
+      // 각 위젯들이 이동할 위치 구하기
+      const newX = (currentX !== null && typeof currentX != 'undefined') ? currentX : currentNode.x
+      const newY = (currentRow !== null && typeof currentRow != 'undefined') ? currentRow : currentNode.y
+
+      // 위젯 정보 업데이트
+      currentNode.x = newX
+      currentNode.y = newY
+      currentNode.lastTriedX = newX
+      currentNode.lastTriedY = newY
+
+      currentNode._dirty = true
+    }
+  }
+
   GridStackEngine.prototype.moveNode = function (node, x, y, width, height, noPack) {
     if (!this.isNodeChangedPosition(node, x, y, width, height)) {
       return node
     }
-    if (typeof x != 'number') { x = node.x }
-    if (typeof y != 'number') { y = node.y }
-    if (typeof width != 'number') { width = node.width }
-    if (typeof height != 'number') { height = node.height }
 
-    if (typeof node.maxWidth != 'undefined') { width = Math.min(width, node.maxWidth) }
-    if (typeof node.maxHeight != 'undefined') { height = Math.min(height, node.maxHeight) }
-    if (typeof node.minWidth != 'undefined') { width = Math.max(width, node.minWidth) }
-    if (typeof node.minHeight != 'undefined') { height = Math.max(height, node.minHeight) }
+    // 목적지 좌표가 입력이 안되어 있다면, 현재 좌표를 입력
+    if (typeof x !== 'number') { x = node.x }
+    if (typeof y !== 'number') { y = node.y }
+    if (typeof width !== 'number') { width = node.width }
+    if (typeof height !== 'number') { height = node.height }
 
-    if (node.x == x && node.y == y && node.width == width && node.height == height) {
+    // 위젯의 최대 너비, 높이가 허용된 범위를 넘었는지 체크
+    if (typeof node.maxWidth !== 'undefined') { width = Math.min(width, node.maxWidth) }
+    if (typeof node.maxHeight !== 'undefined') { height = Math.min(height, node.maxHeight) }
+    if (typeof node.minWidth !== 'undefined') { width = Math.max(width, node.minWidth) }
+    if (typeof node.minHeight !== 'undefined') { height = Math.max(height, node.minHeight) }
+
+    // 현재 위젯과 이동할 위젯의 좌표가 같으면 (제자리라면 현재 위젯정보 리턴)
+    if (node.x === x && node.y === y && node.width === width && node.height === height) {
       return node
     }
 
-    var resizing = node.width != width
-    node._dirty = true
-
+    // 이동할 위치로 위젯속성 설정
     node.x = x
     node.y = y
     node.width = width
     node.height = height
-
     node.lastTriedX = x
     node.lastTriedY = y
     node.lastTriedWidth = width
     node.lastTriedHeight = height
 
-    // node = this._prepareNode(node, resizing)
-
-    this._fixCollisions(node)
-
+    // 위치 이동이 확정되면 호출되는 부분입니다.
     if (!noPack) {
-      this._packNodes()
+      // 그리드 레이아웃 정렬 -> 스타일이 변경되기 전에 처리되야한다.
+      this._updateLayoutFromSeq()
+
+      // 스타일 변경 이벤트
       this._notify()
     }
     return node
@@ -596,7 +705,7 @@
       placeholderText: '',
       handle: '.grid-stack-item-content',
       handleClass: null,
-      cellHeight: 60,
+      cellHeight: '300px',
       verticalMargin: 20,
       auto: true,
       minWidth: 768,
@@ -672,6 +781,8 @@
       _.each(this.nodes, function (n) {
         maxHeight = Math.max(maxHeight, n.y + n.height)
       })
+
+      // 변경된 노드의 요소에 좌표, 너비, 높이값 설정
       _.each(nodes, function (n) {
         if (detachNode && n._id === null) {
           if (n.el) {
@@ -716,11 +827,13 @@
       self.cellHeight(self.cellWidth(), false)
     }, 100)
 
+    // 위젯의 리사이즈 이벤트 핸들러 함수입니다.
     this.onResizeHandler = function () {
       if (isAutoCellHeight) {
         self._updateHeightsOnResize()
       }
 
+      // One 컬럼 모드는 사용하지 않는다.
       if (self._isOneColumnMode() && !self.opts.disableOneColumnMode) {
         if (oneColumnMode) {
           return
@@ -893,8 +1006,7 @@
           Utils.removePositioningStyles(el)
           el.find('div.ui-resizable-handle').remove()
 
-          el
-            .attr('data-gs-x', node.x)
+          el.attr('data-gs-x', node.x)
             .attr('data-gs-y', node.y)
             .attr('data-gs-width', node.width)
             .attr('data-gs-height', node.height)
@@ -1091,72 +1203,91 @@
     var cellHeight
 
     var dragOrResize = function (event, ui) {
-      var x = Math.round(ui.position.left / cellWidth)
-      var y = Math.floor((ui.position.top + cellHeight / 2) / cellHeight)
-      var width
-      var height
+      let x = Math.round(ui.position.left / cellWidth)
+      let y = Math.floor((ui.position.top + cellHeight / 2) / cellHeight)
+      let width = null
+      let height = null
 
-      if (event.type != 'drag') {
-        width = Math.round(ui.size.width / cellWidth)
-        height = Math.round(ui.size.height / cellHeight)
+      // 리사이즈 최대 너비를 3으로 제한
+      if (event.type !== 'drag') {
+        const calcWidth = Math.round(ui.size.width / cellWidth)
+        width = (calcWidth > 3) ? 3 : calcWidth
+        // height = Math.round(ui.size.height / cellHeight)
+        height = 1
       }
 
-      if (event.type == 'drag') {
-        if (el.data('inTrashZone') || x < 0 || x >= self.grid.width || y < 0 ||
-          (!self.grid.float && y > self.grid.getGridHeight())) {
-          if (!node._temporaryRemoved) {
-            if (self.opts.removable === true) {
-              self._setupRemovingTimeout(el)
-            }
-
-            x = node._beforeDragX
-            y = node._beforeDragY
-
-            self.placeholder.detach()
-            self.placeholder.hide()
-            self.grid.removeNode(node)
-            self._updateContainerHeight()
-
-            node._temporaryRemoved = true
+      // X좌표가 범위를 벗어나면 return
+      if (el.data('inTrashZone') || x < 0 || x >= self.grid.width || y < 0 || (!self.grid.float && y > self.grid.getGridHeight())) {
+        if (!node._temporaryRemoved) {
+          if (self.opts.removable === true) {
+            self._setupRemovingTimeout(el)
           }
-        } else {
-          self._clearRemovingTimeout(el)
 
-          if (node._temporaryRemoved) {
-            self.grid.addNode(node)
-            self.placeholder
-              .attr('data-gs-x', x)
-              .attr('data-gs-y', y)
-              .attr('data-gs-width', width)
-              .attr('data-gs-height', height)
-              .show()
-            self.container.append(self.placeholder)
-            node.el = self.placeholder
-            node._temporaryRemoved = false
-          }
+          // x = node._beforeDragX
+          // y = node._beforeDragY
+          //
+          // self.placeholder.detach()
+          // self.placeholder.hide()
+          // self.grid.removeNode(node)
+          // self._updateContainerHeight()
+          // node._temporaryRemoved = true
         }
-      } else if (event.type == 'resize') {
+        return
+      }
+
+      if (event.type === 'drag') {
+        self._clearRemovingTimeout(el)
+
+        if (node._temporaryRemoved) {
+          self.grid.addNode(node)
+          self.placeholder
+            .attr('data-gs-x', x)
+            .attr('data-gs-y', y)
+            .attr('data-gs-width', width)
+            .attr('data-gs-height', height)
+            .show()
+          self.container.append(self.placeholder)
+          node.el = self.placeholder
+          node._temporaryRemoved = false
+        }
+      } else if (event.type === 'resize') {
         if (x < 0) {
           return
         }
       }
-      // width and height are undefined if not resizing
-      var lastTriedWidth = typeof width !== 'undefined' ? width : node.lastTriedWidth
-      var lastTriedHeight = typeof height !== 'undefined' ? height : node.lastTriedHeight
+
+      // 너비와 높이가 null이고, 리사이즈 이벤트가 아니라면 위젯의 직전 너비값을 불러옴.
+      var lastTriedWidth = (width !== null) ? width : node.lastTriedWidth
+      var lastTriedHeight = (height !== null) ? height : node.lastTriedHeight
+
+      // 현재의 x, y 좌표로 이동이 가능한지 확인 -> 이동이 안되면 moveNode 메서드를 호출하지 않는다.
       if (!self.grid.canMoveNode(node, x, y, width, height) ||
         (node.lastTriedX === x && node.lastTriedY === y &&
           node.lastTriedWidth === lastTriedWidth && node.lastTriedHeight === lastTriedHeight)) {
         return
       }
-      node.lastTriedX = x
-      node.lastTriedY = y
-      node.lastTriedWidth = width
-      node.lastTriedHeight = height
-      self.grid.moveNode(node, x, y, width, height)
-      self._updateContainerHeight()
+
+      console.log('드래그가 가능한 좌표입니다. -> ', x, y)
+
+      // 순위 변경 -> 순위는 드래그 / 드롭이 일어날 때만 발생한다.
+      if (self.grid._swapWidgets(node, x, y)) {
+        // 이동이 가능하면 마지막 x, y, 너비, 높이 정보를 갱신한다.
+        node.lastTriedX = x
+        node.lastTriedY = y
+        node.lastTriedWidth = width
+        node.lastTriedHeight = height
+
+        // 위젯 이동 수행
+        self.grid.moveNode(node, x, y, width, height)
+
+        // Grid-stack 레이아웃의 너비를 재조정한다.
+        self._updateContainerHeight()
+      }
     }
 
+    // 위젯을 드래그, 리사이즈 하기위해 클릭 후 마우스를 이동하면 호출된다. 이후에는 dragOrResize 메서드를 호출한다.
     var onStartMoving = function (event, ui) {
+      // Placeholder 컨테이너 추가
       self.container.append(self.placeholder)
       var o = $(this)
       self.grid.cleanNodes()
@@ -1203,15 +1334,13 @@
         self._clearRemovingTimeout(el)
         if (!node._temporaryRemoved) {
           Utils.removePositioningStyles(o)
-          o
-            .attr('data-gs-x', node.x)
+          o.attr('data-gs-x', node.x)
             .attr('data-gs-y', node.y)
             .attr('data-gs-width', node.width)
             .attr('data-gs-height', node.height)
         } else {
           Utils.removePositioningStyles(o)
-          o
-            .attr('data-gs-x', node._beforeDragX)
+          o.attr('data-gs-x', node._beforeDragX)
             .attr('data-gs-y', node._beforeDragY)
             .attr('data-gs-width', node.width)
             .attr('data-gs-height', node.height)
@@ -1273,6 +1402,7 @@
     var node = self.grid.addNode({
       x: parseInt(el.attr('data-gs-x'), 10),
       y: parseInt(el.attr('data-gs-y'), 10),
+      seq: parseInt(el.attr('data-gs-s'), 0),
       width: el.attr('data-gs-width'),
       height: el.attr('data-gs-height'),
       maxWidth: el.attr('data-gs-max-width'),
@@ -1553,32 +1683,29 @@
     self.grid.endUpdate()
   }
 
-  GridStack.prototype.resize = function (el, width, height) {
-    this._updateElement(el, function (el, node) {
-      width = (width !== null && typeof width != 'undefined') ? width : node.width
-      height = (height !== null && typeof height != 'undefined') ? height : node.height
+  // 사용하지 않는 코드들 ...
+  // GridStack.prototype.resize = function (el, width, height) {
+  //   this._updateElement(el, function (el, node) {
+  //     width = (width !== null && typeof width != 'undefined') ? width : node.width
+  //     height = (height !== null && typeof height != 'undefined') ? height : node.height
+  //
+  //     this.grid.moveNode(node, node.x, node.y, width, height)
+  //   })
+  // }
+  //
+  // GridStack.prototype.move = function (el, x, y) {
+  //   this._updateElement(el, function (el, node) {
+  //     x = (x !== null && typeof x != 'undefined') ? x : node.x
+  //     y = (y !== null && typeof y != 'undefined') ? y : node.y
+  //     this.grid.moveNode(node, x, y, node.width, node.height)
+  //   })
+  // }
 
-      this.grid.moveNode(node, node.x, node.y, width, height)
-    })
-  }
-
-  GridStack.prototype.move = function (el, x, y) {
-    this._updateElement(el, function (el, node) {
-      x = (x !== null && typeof x != 'undefined') ? x : node.x
-      y = (y !== null && typeof y != 'undefined') ? y : node.y
-
-      this.grid.moveNode(node, x, y, node.width, node.height)
-    })
-  }
-
+  // 변경된 노드의 좌표를 업데이트 합니다.
   GridStack.prototype.update = function (el, x, y, width, height) {
     this._updateElement(el, function (el, node) {
       x = (x !== null && typeof x != 'undefined') ? x : node.x
       y = (y !== null && typeof y != 'undefined') ? y : node.y
-      // 너비에 대한 크기 조절은 고려하지 않는다.
-      // width = (width !== null && typeof width != 'undefined') ? width : node.width
-      // height = (height !== null && typeof height != 'undefined') ? height : node.height
-
       this.grid.moveNode(node, x, y, width, height)
     })
   }
@@ -1672,14 +1799,11 @@
   /*
   현재 Grid-stack 레이아웃을 업데이트 합니다.
    */
-  GridStack.prototype._updateNodeWidths = function (oldColumns, newColumns) {
-    // 0. 등록된 모든 노드 아이템 정렬
+  GridStack.prototype._updateNodeWidths = function (newColumns) {
+    // 등록된 모든 노드 아이템 정렬
     this.grid._sortNodes()
 
-    // 1. Float 재배치
-    this.grid.batchUpdate()
-
-    /* 2. 위젯의 X좌표 계산 */
+    // 위젯의 X좌표 계산
     let currentCol = 0
     let currentRow = 0
     const nodes = this.grid.nodes
@@ -1713,16 +1837,9 @@
         }
       }
 
-      console.log('Target 위젯 -> ', currentNode.el[0].id)
-      console.log('현재 Row 너비 -> ', currentCol)
-      console.log('현재 노드의 너비 -> ', currentNode.width)
-      console.log('현재 위젯 X축 좌표 -> ', currentX, currentRow)
-      console.log('=======================================')
-
-      // 좌표 업데이트
+      // 노드 이동
       this.update(currentNode.el, currentX, currentRow, currentNode.width, undefined)
     }
-    this.grid.commit()
   }
   /*
   현재 설정되어있는 Columns 값을 변경합니다. 레이아웃의 컨테이너 크기에 따라 3, 5, 6으로 변경합니다.
@@ -1733,42 +1850,25 @@
     // 그리드 Stack 클래스 제거
     this.container.removeClass('grid-stack-' + oldColumns)
 
-    // 보이지 않는 노드는 업데이트하지 않는지 여부
-    if (doNotPropagate !== true) {
-      // 레이아웃 업데이트
-      this._updateNodeWidths(oldColumns, newColumns)
-    }
+    // 그리드 레이아웃 너비 업데이트
+    this.grid.width = newColumns
 
     // 현재 레이아웃 정보 업데이트
     this.opts.width = newColumns
 
-    // 그리드 레이아웃 너비 업데이트
-    this.grid.width = newColumns
+    // 보이지 않는 노드는 업데이트하지 않는지 여부
+    if (doNotPropagate !== true) {
+      // 위젯 너비 업데이트
+      this._updateNodeWidths(newColumns)
+    }
 
     // 새로운 클래스 추가. 반응형 위젯 크기 설정
     this.container.addClass('grid-stack-' + newColumns)
 
-    // 모든 위젯에 새로운 클래스 추가
-    // this._setWidgetClass(oldColumns, newColumns)
+    // Gridstack 높이 조절
+    this._updateContainerHeight()
   }
 
-  /*
-  현저 설정되어있는 위젯의 클래스를 변경합니다. 레이아웃의 컨테이너 크기에 따라 3, 5, 6으로 정의된 클래스를 변경합니다.
-  */
-  GridStack.prototype._setWidgetClass = function (oldColumns, newColumns) {
-    for (let i = 0, max = this.grid.nodes.length; i < max; i++) {
-      // 위젯 불러오기
-      let widget = this.grid.nodes[i].el
-
-      console.log('widget -> ', widget)
-
-      // 위젯 클래스 변경
-      widget.removeClass(`grid-stack-item${oldColumns}`)
-      widget.addClass(`grid-stack-item${newColumns}`)
-    }
-  }
-
-  // jscs:disable requireCamelCaseOrUpperCaseIdentifiers
   GridStackEngine.prototype.batch_update = obsolete(GridStackEngine.prototype.batchUpdate)
   GridStackEngine.prototype._fix_collisions = obsolete(GridStackEngine.prototype._fixCollisions,
     '_fix_collisions', '_fixCollisions')
@@ -1776,8 +1876,8 @@
     'is_area_empty', 'isAreaEmpty')
   GridStackEngine.prototype._sort_nodes = obsolete(GridStackEngine.prototype._sortNodes,
     '_sort_nodes', '_sortNodes')
-  GridStackEngine.prototype._pack_nodes = obsolete(GridStackEngine.prototype._packNodes,
-    '_pack_nodes', '_packNodes')
+  // GridStackEngine.prototype._pack_nodes = obsolete(GridStackEngine.prototype._packNodes,
+  //   '_pack_nodes', '_packNodes')
   GridStackEngine.prototype._prepare_node = obsolete(GridStackEngine.prototype._prepareNode,
     '_prepare_node', '_prepareNode')
   GridStackEngine.prototype.clean_nodes = obsolete(GridStackEngine.prototype.cleanNodes,
@@ -1845,7 +1945,6 @@
     'set_static', 'setStatic')
   GridStack.prototype._set_static_class = obsolete(GridStack.prototype._setStaticClass,
     '_set_static_class', '_setStaticClass')
-  // jscs:enable requireCamelCaseOrUpperCaseIdentifiers
 
   scope.GridStackUI = GridStack
 

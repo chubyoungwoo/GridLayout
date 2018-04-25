@@ -1,15 +1,3 @@
-const defaultWidgetOptions = {
-  x: 0,
-  y: 0,
-  w: 1,
-  h: 1,
-  minWidth: 1,
-  maxWidth: 3,
-  minHeight: 1,
-  maxHeight: 2,
-  autoPosition: true
-}
-
 export function createGridLayout (target, options = {}) {
   $(target).gridstack(options)
 }
@@ -76,4 +64,18 @@ export function removeAllWidgets (target) {
 
   // 모든 위젯 제거
   layout.removeAll()
+}
+
+export function loadLayout (target, callback) {
+
+}
+
+export function saveLayout (target, callback) {
+  //0. 활성화 되어있는 위젯정보 가져오기
+  const layout = $(target).data('gridstack')
+
+  // 1. 활성화 되어있는 위젯정보 찾기
+  console.log('Test -> ', layout.grid.nodes)
+
+  callback()
 }

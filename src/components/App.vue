@@ -4,6 +4,7 @@
       <button @click="onClickAddWidget">위젯 추가</button>
       <button @click="onClickLayoutLocked">레이아웃 {{ isLocked ? '잠금 해제' : '잠금' }}</button>
       <button @click="onClickResetLayout">레이아웃 초기화</button>
+      <button @click="onClickSaveLayout">레이아웃 저장</button>
     </div>
     <grid-layout ref="layout"
                  :style="style"
@@ -31,6 +32,7 @@
         },
         locked: false,
         options: {
+          // float: true,
           cellHeight: '300px'
         },
         widgets: []
@@ -51,7 +53,16 @@
       // 서버에서 위젯의 정보를 불러왔다고 가정
       const loadWidgets = [
         {
+          i: 'widget_0',
+          s: 0,
+          title: '0',
+          isLock: false,
+          isMove: true,
+          isResize: true
+        },
+        {
           i: 'widget_1',
+          s: 1,
           title: '1',
           isLock: false,
           isMove: true,
@@ -59,6 +70,7 @@
         },
         {
           i: 'widget_2',
+          s: 2,
           title: '2',
           isLock: false,
           isMove: true,
@@ -66,6 +78,7 @@
         },
         {
           i: 'widget_3',
+          s: 3,
           title: '3',
           isLock: false,
           isMove: true,
@@ -73,6 +86,7 @@
         },
         {
           i: 'widget_4',
+          s: 4,
           title: '4',
           isLock: false,
           isMove: true,
@@ -80,14 +94,8 @@
         },
         {
           i: 'widget_5',
+          s: 5,
           title: '5',
-          isLock: false,
-          isMove: true,
-          isResize: true
-        },
-        {
-          i: 'widget_6',
-          title: '6',
           isLock: false,
           isMove: true,
           isResize: true
@@ -110,10 +118,14 @@
     errorCaptured () {},
     methods: {
       onClickAddWidget () {
+        // 현재 화면에 출력되어 있는 위젯갯수 가져오기
+        const widgetNumbers = this.widgets.length
+
         // 새로운 위젯 정보 생성
         const newWidget = {
-          i: `widget_${this.widgets.length + 1}`,
-          title: `${this.widgets.length + 1}`
+          i: `widget_${widgetNumbers}`,
+          s: `${widgetNumbers}`,
+          title: `${widgetNumbers}`
         }
 
         // 위젯 정보 모델에 추가
@@ -142,6 +154,9 @@
           widget.isMove = currentLocked ? false : true
           widget.isResize = currentLocked ? false : true
         }
+      },
+      onClickSaveLayout () {
+        Utils.saveLayout('.grid-stack', function () {})
       }
     },
     watch: {}

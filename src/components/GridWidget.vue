@@ -5,6 +5,7 @@
        :data-gs-y="y"
        :data-gs-w="w"
        :data-gs-h="h"
+       :data-gs-s="s"
        :data-gs-locked="isLock"
        :data-gs-no-move="!isMove"
        :data-gs-no-resize="!isResize"
@@ -12,8 +13,11 @@
   >
     <div class="grid-stack-item-content">
       <div class="grid-stack-item-content-toolbar">
-        <div style="flex-grow: 1">{{ title }}</div>
+        <div style="flex-grow: 1">
+          {{ title }} {{ s }}
+        </div>
         <div>
+          <button @click="onClickMaximumWidget">최대화</button>
           <button @click="onClickLockedWidget">{{ lockState }}</button>
           <button @click="onClickRemoveWidget">삭제</button>
         </div>
@@ -49,6 +53,10 @@
       },
       i: {
         type: String,
+        required: true
+      },
+      s: {
+        type: [Number, String],
         required: true
       },
       title: String,
@@ -97,7 +105,8 @@
       onClickRemoveWidget () {
         // DOM에서 위젯을 제거
         Utils.removeWidget('.grid-stack', this.$el)
-      }
+      },
+      onClickMaximumWidget () {}
     },
     watch: {
       isMove (value) {
