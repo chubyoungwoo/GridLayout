@@ -219,8 +219,6 @@
   GridStackEngine.prototype._swapBigWidget = function (target, x, y) {
     // 범위에 포함되는 위젯만 따로 구하기
     let toAreaWidget = []
-    let fromAfterWidget = []
-
     // 모든 위젯 검사
     for (const widget of this.nodes) {
       if (x <= widget.x && x + target.width - 1 >= widget.x && target !== widget && widget.y === y) {
@@ -237,83 +235,47 @@
       return false
     } else if (toAreaWidget.length === 1) {
       // 변경할 대상 위젯 갯수가 1개라면 스왑 (사이즈가 동일한 경우)
-      return this._swapSameSizeWidgets(target, toAreaWidget[0])
+      return this._swapOnceWidget(target, toAreaWidget[0])
     } else {
       // 변경할 대상 위젯 갯수가 1개 초과라면 스왑처리 (사이즈가 동일하지 않고 여러개인 경우)
+      for (var i = 0, max = toAreaWidget.length; i < max; i++) {
+        const changeWidget = toAreaWidget[i]
+        if (i === 0) {
+          const targetSeq = target.seq
+          target.seq = changeWidget.seq
+          changeWidget.seq = targetSeq
+        } else {
+          // 우선순위를 두기위해 (+1을 할 경우 기존 위젯과 겹치는 증상 발생)
+          changeWidget.seq = toAreaWidget[i - 1].seq + 0.1
+        }
+        changeWidget._dirty = true
+      }
+      // 변경된 시퀀스를 기준으로 정렬
+      this.nodes.sort((prev, after) => {
+        return (prev.seq < after.seq) ? -1 : (prev.seq > after.seq) ? 1 : 0
+      })
+      // 우선순위 정리
+      for (var i = 0, max = this.nodes.length; i < max; i++) {
+        this.nodes[i].seq = i
+      }
+      target._dirty = true
     }
-
-    // 바꿀 대상이 하나라면 (크기가 동일하다면 스왑 후 리턴)
-    // if (toAreaWidget.length === 1) {
-    //   const toOnceWidget = toAreaWidget[0]
-    //
-    //   // 잠겨있는 위젯인가?
-    //   if (toOnceWidget.locked) {
-    //     return false
-    //   }
-    //
-    //   // To widget 순위 변경
-    //   const beforeSeq = toOnceWidget.seq
-    //   toOnceWidget.seq = target.seq
-    //   target.seq = beforeSeq
-    //
-    //   // 스타일 업데이트 시 반영
-    //   toOnceWidget._dirty = true
-    //   target._dirty = true
-    //   this._sortNodes()
-    //
-    //   console.log('변경할 위젯이 하나? -> ', toOnceWidget)
-    //
-    //   return true
-    // }
-    //
-    // // 위치를 변경할 From 위젯의 마지막 우선순위 저장
-    // let fromLastSeq = 0
-    // // 이동 대상 위젯의 첫번째 아이템을 제외한 나머지는 -1로 설정
-    // for (let i = 0, max = toAreaWidget.length; i < max; i++) {
-    //   // 제일 첫번째 위젯은 Target 위젯과 위치를 바꾼다.
-    //   const swapWidget = toAreaWidget[i]
-    //   if (i === 0) {
-    //     const beforeSeq = swapWidget.seq
-    //     swapWidget.seq = target.seq
-    //     target.seq = beforeSeq
-    //     fromLastSeq = swapWidget.seq
-    //   } else {
-    //     fromLastSeq = swapWidget.seq = toAreaWidget[i - 1].seq + 1
-    //   }
-    //   // 위치를 업데이트할 노드 표시
-    //   swapWidget._dirty = true
-    // }
-    // // 뒷쪽에 있던 노드 우선순위 정렬
-    // for (const afterWidget of fromAfterWidget) {
-    //   fromLastSeq += 1
-    //   afterWidget.seq = fromLastSeq
-    // }
-    // // 노드 순서 정렬
-    // this._sortNodes()
-    // // 우선순위 재정렬
-    // for (let idx = 0, max = this.nodes.length; idx < max; idx++) {
-    //   this.nodes[idx].seq = idx
-    // }
-    // target._dirty = true
     return true
   }
 
   // 크기가 동일한 위젯을 스왑합니다.
-  GridStackEngine.prototype._swapSameSizeWidgets = function (toWidget, fromWidget) {
+  GridStackEngine.prototype._swapOnceWidget = function (toWidget, fromWidget) {
     // 잠겨있는 위젯인가?
     if (fromWidget.locked) {
       return false
     }
-
     // To widget 순위 변경
     const beforeSeq = fromWidget.seq
     fromWidget.seq = toWidget.seq
     toWidget.seq = beforeSeq
-
     // 스타일 업데이트 시 반영
     fromWidget._dirty = true
     toWidget._dirty = true
-
     return true
   }
 
@@ -328,19 +290,16 @@
         return false
       }
     }
-
     // 드래그 & 드롭 이벤트 발생 시 범위내에 위젯이 존재하는 경우
     for (const widget of this.nodes) {
       // 동일한 위치의 위젯을 변경하는 경우
       if (widget.x === x && widget.y === y) {
-        if (!this._swapSameSizeWidgets(target, widget)) {
+        if (!this._swapOnceWidget(target, widget)) {
           return false
         }
       }
     }
-
     this._sortNodes()
-
     return true
   }
 
@@ -480,6 +439,8 @@
     }
 
     var deletedNodes = args[0].concat(this.getDirtyNodes())
+
+    console.log('업데이트 대상 노드 -> ', deletedNodes)
 
     this.onchange(deletedNodes, args[1])
   }
@@ -640,7 +601,6 @@
       // X축 좌표를 저장하는 변수 선언
       let currentX = 0
       const currentNode = nodes[i]
-
       // 첫번째 노드라면 currentRow 업데이트 후 위치 지정
       if (i === 0) {
         currentCol += currentNode.width
@@ -656,10 +616,8 @@
         } else {
           // 이전노드 좌표 가져오기
           const beforeNode = nodes[i - 1]
-
           // 현재 Row 너비 업데이트
           currentCol += currentNode.width
-
           // CurrentRow - 1이 새로운 X축 좌표
           currentX = beforeNode.x + beforeNode.width
         }
@@ -715,7 +673,6 @@
     if (!noPack) {
       // 그리드 레이아웃 정렬 -> 스타일이 변경되기 전에 처리되야한다.
       this._updateLayoutFromSeq()
-
       // 스타일 변경 이벤트
       this._notify()
     }
