@@ -201,50 +201,146 @@
   }
 
   // 이 프로토타입은 사용하지 않습니다.
-  // GridStackEngine.prototype.commit = function () {
-  //   if (this._updateCounter !== 0) {
-  //     this._updateCounter = 0
-  //     this.float = this._float
-  //     this._packNodes()
-  //     this._notify()
-  //   }
-  // }
+  GridStackEngine.prototype.commit = function () {
+    if (this._updateCounter !== 0) {
+      this._updateCounter = 0
+      this.float = this._float
+      this._packNodes()
+      this._notify()
+    }
+  }
 
   // For Meteor support: https://github.com/troolee/gridstack.js/pull/272
   GridStackEngine.prototype.getNodeDataByDOMEl = function (el) {
     return _.find(this.nodes, function (n) { return el.get(0) === n.el.get(0) })
   }
 
-  GridStackEngine.prototype._swapWidgets = function (target, x, y) {
-    // 위젯 순서 변경하기
+  // 너비가 큰 위젯이 상 / 하단 위치 이동 시 위젯의 순서를 변경합니다.
+  GridStackEngine.prototype._swapBigWidget = function (target, x, y) {
+    // 범위에 포함되는 위젯만 따로 구하기
+    let toAreaWidget = []
+    let fromAfterWidget = []
+
+    // 모든 위젯 검사
     for (const widget of this.nodes) {
-      // 동일한 위치에 위젯이 존재하는 경우
-      if (widget.x === x && widget.y === y) {
-        // 잠겨있는 위젯인가?
+      if (x <= widget.x && x + target.width - 1 >= widget.x && target !== widget && widget.y === y) {
+        // 잠겨있는 위젯이 있는 경우
         if (widget.locked) {
           return false
         }
+        // To 위젯 저장
+        toAreaWidget.push(widget)
+      }
+    }
+    // 변경할 대상 위젯 갯수에 따라 처리과정 분기
+    if (toAreaWidget.length === 0) {
+      return false
+    } else if (toAreaWidget.length === 1) {
+      // 변경할 대상 위젯 갯수가 1개라면 스왑 (사이즈가 동일한 경우)
+      return this._swapSameSizeWidgets(target, toAreaWidget[0])
+    } else {
+      // 변경할 대상 위젯 갯수가 1개 초과라면 스왑처리 (사이즈가 동일하지 않고 여러개인 경우)
+    }
 
-        // To widget 순위 변경
-        const beforeSeq = widget.seq
-        widget.seq = target.seq
-        target.seq = beforeSeq
+    // 바꿀 대상이 하나라면 (크기가 동일하다면 스왑 후 리턴)
+    // if (toAreaWidget.length === 1) {
+    //   const toOnceWidget = toAreaWidget[0]
+    //
+    //   // 잠겨있는 위젯인가?
+    //   if (toOnceWidget.locked) {
+    //     return false
+    //   }
+    //
+    //   // To widget 순위 변경
+    //   const beforeSeq = toOnceWidget.seq
+    //   toOnceWidget.seq = target.seq
+    //   target.seq = beforeSeq
+    //
+    //   // 스타일 업데이트 시 반영
+    //   toOnceWidget._dirty = true
+    //   target._dirty = true
+    //   this._sortNodes()
+    //
+    //   console.log('변경할 위젯이 하나? -> ', toOnceWidget)
+    //
+    //   return true
+    // }
+    //
+    // // 위치를 변경할 From 위젯의 마지막 우선순위 저장
+    // let fromLastSeq = 0
+    // // 이동 대상 위젯의 첫번째 아이템을 제외한 나머지는 -1로 설정
+    // for (let i = 0, max = toAreaWidget.length; i < max; i++) {
+    //   // 제일 첫번째 위젯은 Target 위젯과 위치를 바꾼다.
+    //   const swapWidget = toAreaWidget[i]
+    //   if (i === 0) {
+    //     const beforeSeq = swapWidget.seq
+    //     swapWidget.seq = target.seq
+    //     target.seq = beforeSeq
+    //     fromLastSeq = swapWidget.seq
+    //   } else {
+    //     fromLastSeq = swapWidget.seq = toAreaWidget[i - 1].seq + 1
+    //   }
+    //   // 위치를 업데이트할 노드 표시
+    //   swapWidget._dirty = true
+    // }
+    // // 뒷쪽에 있던 노드 우선순위 정렬
+    // for (const afterWidget of fromAfterWidget) {
+    //   fromLastSeq += 1
+    //   afterWidget.seq = fromLastSeq
+    // }
+    // // 노드 순서 정렬
+    // this._sortNodes()
+    // // 우선순위 재정렬
+    // for (let idx = 0, max = this.nodes.length; idx < max; idx++) {
+    //   this.nodes[idx].seq = idx
+    // }
+    // target._dirty = true
+    return true
+  }
 
-        // To widget 좌표 정보 변경
-        widget.x = target.x
-        widget.y = target.y
-        widget.lastTriedX = target.x
-        widget.lastTriedY = target.y
+  // 크기가 동일한 위젯을 스왑합니다.
+  GridStackEngine.prototype._swapSameSizeWidgets = function (toWidget, fromWidget) {
+    // 잠겨있는 위젯인가?
+    if (fromWidget.locked) {
+      return false
+    }
 
-        // 스타일 업데이트 시 반영
-        widget._dirty = true
+    // To widget 순위 변경
+    const beforeSeq = fromWidget.seq
+    fromWidget.seq = toWidget.seq
+    toWidget.seq = beforeSeq
+
+    // 스타일 업데이트 시 반영
+    fromWidget._dirty = true
+    toWidget._dirty = true
+
+    return true
+  }
+
+  // 드래그 & 드롭 발생 시 위젯간의 위치와 우선 순위를 변경합니다.
+  GridStackEngine.prototype._swapWidgets = function (target, x, y, type) {
+    // 크기가 큰 위젯은 따로 스왑을 관리한다
+    if (target.width > 1 && type === 'drag') {
+      if (this._swapBigWidget(target, x, y)) {
+        this._sortNodes()
+        return true
+      } else {
+        return false
       }
     }
 
-    // 노드 순서 정렬
+    // 드래그 & 드롭 이벤트 발생 시 범위내에 위젯이 존재하는 경우
+    for (const widget of this.nodes) {
+      // 동일한 위치의 위젯을 변경하는 경우
+      if (widget.x === x && widget.y === y) {
+        if (!this._swapSameSizeWidgets(target, widget)) {
+          return false
+        }
+      }
+    }
+
     this._sortNodes()
 
-    // 리턴
     return true
   }
 
@@ -278,6 +374,8 @@
   }
 
   GridStackEngine.prototype._packNodes = function () {
+    console.log('팩 노드 호출 ??')
+
     // 노드 정렬
     this._sortNodes()
 
@@ -376,9 +474,11 @@
     var args = Array.prototype.slice.call(arguments, 0)
     args[0] = typeof args[0] === 'undefined' ? [] : [args[0]]
     args[1] = typeof args[1] === 'undefined' ? true : args[1]
+
     if (this._updateCounter) {
       return
     }
+
     var deletedNodes = args[0].concat(this.getDirtyNodes())
 
     this.onchange(deletedNodes, args[1])
@@ -792,6 +892,7 @@
           n.el
             .attr('data-gs-x', n.x)
             .attr('data-gs-y', n.y)
+            .attr('data-gs-s', n.seq)
             .attr('data-gs-width', n.width)
             .attr('data-gs-height', n.height)
         }
@@ -1008,6 +1109,7 @@
 
           el.attr('data-gs-x', node.x)
             .attr('data-gs-y', node.y)
+            .attr('data-gs-s', node.seq)
             .attr('data-gs-width', node.width)
             .attr('data-gs-height', node.height)
             .addClass(self.opts.itemClass)
@@ -1223,8 +1325,8 @@
             self._setupRemovingTimeout(el)
           }
 
-          // x = node._beforeDragX
-          // y = node._beforeDragY
+          x = node._beforeDragX
+          y = node._beforeDragY
           //
           // self.placeholder.detach()
           // self.placeholder.hide()
@@ -1232,7 +1334,7 @@
           // self._updateContainerHeight()
           // node._temporaryRemoved = true
         }
-        return
+        // return
       }
 
       if (event.type === 'drag') {
@@ -1267,10 +1369,8 @@
         return
       }
 
-      console.log('드래그가 가능한 좌표입니다. -> ', x, y)
-
       // 순위 변경 -> 순위는 드래그 / 드롭이 일어날 때만 발생한다.
-      if (self.grid._swapWidgets(node, x, y)) {
+      if (self.grid._swapWidgets(node, x, y, event.type)) {
         // 이동이 가능하면 마지막 x, y, 너비, 높이 정보를 갱신한다.
         node.lastTriedX = x
         node.lastTriedY = y
@@ -1336,12 +1436,14 @@
           Utils.removePositioningStyles(o)
           o.attr('data-gs-x', node.x)
             .attr('data-gs-y', node.y)
+            .attr('data-gs-s', node.seq)
             .attr('data-gs-width', node.width)
             .attr('data-gs-height', node.height)
         } else {
           Utils.removePositioningStyles(o)
           o.attr('data-gs-x', node._beforeDragX)
             .attr('data-gs-y', node._beforeDragY)
+            .attr('data-gs-s', node.seq)
             .attr('data-gs-width', node.width)
             .attr('data-gs-height', node.height)
           node.x = node._beforeDragX
@@ -1435,6 +1537,7 @@
     el = $(el)
     if (typeof x != 'undefined') { el.attr('data-gs-x', x) }
     if (typeof y != 'undefined') { el.attr('data-gs-y', y) }
+    el.attr('data-gs-s', this.grid.nodes.length)
     if (typeof width != 'undefined') { el.attr('data-gs-width', width) }
     if (typeof height != 'undefined') { el.attr('data-gs-height', height) }
     if (typeof autoPosition != 'undefined') { el.attr('data-gs-auto-position', autoPosition ? 'yes' : null) }

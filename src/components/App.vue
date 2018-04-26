@@ -99,6 +99,30 @@
           isLock: false,
           isMove: true,
           isResize: true
+        },
+        {
+          i: 'widget_6',
+          s: 6,
+          title: '6',
+          isLock: false,
+          isMove: true,
+          isResize: true
+        },
+        {
+          i: 'widget_7',
+          s: 7,
+          title: '7',
+          isLock: false,
+          isMove: true,
+          isResize: true
+        },
+        {
+          i: 'widget_8',
+          s: 8,
+          title: '8',
+          isLock: false,
+          isMove: true,
+          isResize: true
         }
       ]
 
