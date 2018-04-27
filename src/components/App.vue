@@ -7,7 +7,6 @@
       <button @click="onClickSaveLayout">레이아웃 저장</button>
     </div>
     <grid-layout ref="layout"
-                 :style="style"
                  :widgets="widgets"
                  :options="options"
     >
@@ -27,12 +26,8 @@
     mixins: [],
     data () {
       return {
-        style: {
-          border: '1px solid red'
-        },
         locked: false,
         options: {
-          // float: true,
           cellHeight: '300px'
         },
         widgets: []
@@ -55,6 +50,7 @@
         {
           i: 'widget_0',
           s: 0,
+          w: 3,
           title: '0',
           isLock: false,
           isMove: true,
@@ -63,6 +59,7 @@
         {
           i: 'widget_1',
           s: 1,
+          w: 3,
           title: '1',
           isLock: false,
           isMove: true,
@@ -144,17 +141,14 @@
       onClickAddWidget () {
         // 현재 화면에 출력되어 있는 위젯갯수 가져오기
         const widgetNumbers = this.widgets.length
-
         // 새로운 위젯 정보 생성
         const newWidget = {
           i: `widget_${widgetNumbers}`,
           s: `${widgetNumbers}`,
           title: `${widgetNumbers}`
         }
-
         // 위젯 정보 모델에 추가
         this.widgets.push(newWidget)
-
         // Util makeWidget 호출 - Mounte 된 후에 호출
         this.$nextTick(function () {
           Utils.makeWidget('.grid-stack', newWidget.i)
@@ -163,7 +157,6 @@
       onClickResetLayout () {
         // DOM에서 위젯 제거
         Utils.removeAllWidgets('.grid-stack')
-
         // 위젯을 저장하고 있는 모델 빈 배열로 초기화
         this.widgets = []
       },
@@ -180,7 +173,15 @@
         }
       },
       onClickSaveLayout () {
-        Utils.saveLayout('.grid-stack', function () {})
+        Utils.saveLayout('.grid-stack', function (widgets) {
+          // 위젯 정보에서 X, Y좌표 제거 (불러오기 및 새로고침 시 우선순위에 의해 자동으로 설정되므로)
+          for (const widget of widgets) {
+            delete widget.x
+            delete widget.y
+          }
+          // 위젯 저장
+          console.log('저장 위젯들 -> ', widgets)
+        })
       }
     },
     watch: {}
@@ -190,7 +191,10 @@
 <style>
   html,
   body {
+    width: 100%;
     height: 100%;
+    margin: 0;
+    padding: 0;
   }
 
   .app {

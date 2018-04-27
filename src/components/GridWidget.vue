@@ -1,11 +1,11 @@
 <template>
   <div class="grid-stack-item"
        :id="i"
+       :data-gs-s="s"
        :data-gs-x="x"
        :data-gs-y="y"
-       :data-gs-w="w"
-       :data-gs-h="h"
-       :data-gs-s="s"
+       :data-gs-width="w"
+       :data-gs-height="h"
        :data-gs-locked="isLock"
        :data-gs-no-move="!isMove"
        :data-gs-no-resize="!isResize"
@@ -45,11 +45,17 @@
       },
       w: {
         type: [Number, String],
-        default: 1
+        default: 1,
+        validator (width) {
+          return width > 0 && width < 4
+        }
       },
       h: {
         type: [Number, String],
-        default: 1
+        default: 1,
+        validator () {
+          return 1
+        }
       },
       i: {
         type: String,
@@ -106,7 +112,10 @@
         // DOM에서 위젯을 제거
         Utils.removeWidget('.grid-stack', this.$el)
       },
-      onClickMaximumWidget () {}
+      onClickMaximumWidget () {
+        // 위젯을 최대 사이즈의 팝업으로 출력
+        this.$emit('openMaximumWidget', this.$el)
+      }
     },
     watch: {
       isMove (value) {

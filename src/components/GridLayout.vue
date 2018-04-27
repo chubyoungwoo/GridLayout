@@ -1,7 +1,5 @@
 <template>
-  <div class="grid-stack"
-       :data-gs-width="columns"
-  >
+  <div class="grid-stack">
     <grid-widget v-for="widget in widgets"
                  :x="widget.x"
                  :y="widget.y"
@@ -14,9 +12,14 @@
                  :isLock="widget.isLock"
                  :isMove="widget.isMove"
                  :isResize="widget.isResize"
-                 :autoPosition="widget.autoPosition"
+                 @openMaximumWidget="openMaximumWidget"
     >
     </grid-widget>
+    <grid-widget-maximum v-show="showMaximum"
+                         @closeMaximumWidget="closeMaximumWidget"
+    >
+      {{ }}
+    </grid-widget-maximum>
   </div>
 </template>
 <script>
@@ -25,11 +28,13 @@
 
   // Widget 불러오기
   import GridWidget from './GridWidget.vue'
+  import GridWidgetMaximum from './GridWidgetMaximum'
 
   export default {
     name: 'GridLayout',
     components: {
-      GridWidget
+      GridWidget,
+      GridWidgetMaximum
     },
     directives: {},
     mixins: [],
@@ -53,7 +58,7 @@
     },
     data () {
       return {
-        columns: 5
+        showMaximum: false
       }
     },
     computed: {},
@@ -66,15 +71,12 @@
       this.$nextTick(function () {
         // 원컬럼모드 제거
         this.options.disableOneColumnMode = true
-
         // 기본 설정 - 최소 너비, 높이 설정
         this.options.minWidth = 1
         this.options.maxWidth = 3
         this.options.cellHeight = '300px'
-
         // Grid layout 초기화
         createGridLayout('.grid-stack', this.options)
-
         // 그리드 사이즈 조절
         this.onResizeLayout()
       })
@@ -93,20 +95,32 @@
         // 0. 브라우저 영역 구하기
         const layout = '.grid-stack'
         const layoutWidth = this.$el.clientWidth
-
         // 1. 레이아웃 변경 - 컬럼갯수 및 노드 업데이트 처리
         if (layoutWidth >= 1920) {
-          setLayoutColumns(layout, 6)
+          if (getLayoutColumn(layout) !== 6) {
+            setLayoutColumns(layout, 6)
+          }
         } else if (layoutWidth >= 1600 && layoutWidth < 1920) {
-          setLayoutColumns(layout, 5)
+          console.log('? -> ', getLayoutColumn(layout))
+          if (getLayoutColumn(layout) !== 5) {
+            setLayoutColumns(layout, 5)
+          }
         } else {
-          setLayoutColumns(layout, 3)
+          if (getLayoutColumn(layout) !== 3) {
+            setLayoutColumns(layout, 3)
+          }
         }
+      },
+      openMaximumWidget (content) {
+        this.showMaximum = true
+      },
+      closeMaximumWidget () {
+        this.showMaximum = false
       }
     },
     watch: {}
   }
 </script>
 
-<style>
+<style scoped>
 </style>

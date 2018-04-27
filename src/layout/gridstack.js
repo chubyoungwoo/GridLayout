@@ -43,6 +43,7 @@
       return !(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y)
     },
 
+    // 위젯의 우선순위를 기준으로 내부 객체를 정렬합니다.
     sort: function (nodes) {
       // width = width || _.chain(nodes).map(function (node) { return node.x + node.width }).max().value()
       // dir = dir != -1 ? 1 : -1
@@ -52,7 +53,12 @@
       //   console.log('Node info -> ', n)
       //   return dir * (n.x + n.y * width)
       // })
+      // 위젯의 우선순위를 기준으로 위젯들을 정렬한다.
       nodes.sort((beforeWidget, afterWidget) => beforeWidget.seq - afterWidget.seq)
+      // 정렬된 위젯들에게 우선순위를 다시 부여한다.
+      for (var i = 0, max = nodes.length; i < max; i++) {
+        nodes[i].seq = i
+      }
       return nodes
     },
 
@@ -162,9 +168,10 @@
     return this
   }
 
-  GridStackDragDropPlugin.prototype.draggable = function (el, opts) {
-    return this
-  }
+  // 이 프로토타입은 사용되지 않습니다.
+  // GridStackDragDropPlugin.prototype.draggable = function (el, opts) {
+  //   return this
+  // }
 
   GridStackDragDropPlugin.prototype.droppable = function (el, opts) {
     return this
@@ -205,7 +212,7 @@
     if (this._updateCounter !== 0) {
       this._updateCounter = 0
       this.float = this._float
-      this._packNodes()
+      // this._packNodes()
       this._notify()
     }
   }
@@ -237,7 +244,16 @@
       // 변경할 대상 위젯 갯수가 1개라면 스왑 (사이즈가 동일한 경우)
       return this._swapOnceWidget(target, toAreaWidget[0])
     } else {
-      // 변경할 대상 위젯 갯수가 1개 초과라면 스왑처리 (사이즈가 동일하지 않고 여러개인 경우)
+      // 사이즈 체크
+      let toAreaSize = 0
+      for (var i = 0, max = toAreaWidget.length; i < max; i++) {
+        toAreaSize += toAreaWidget[i].width
+      }
+      // toWidget의 사이즈가 큰 경우 이동금지
+      if (toAreaSize > target.width) {
+        return false
+      }
+      // 변경할 대상 위젯 갯수가 1개 초과라면 스왑처리
       for (var i = 0, max = toAreaWidget.length; i < max; i++) {
         const changeWidget = toAreaWidget[i]
         if (i === 0) {
@@ -251,13 +267,8 @@
         changeWidget._dirty = true
       }
       // 변경된 시퀀스를 기준으로 정렬
-      this.nodes.sort((prev, after) => {
-        return (prev.seq < after.seq) ? -1 : (prev.seq > after.seq) ? 1 : 0
-      })
-      // 우선순위 정리
-      for (var i = 0, max = this.nodes.length; i < max; i++) {
-        this.nodes[i].seq = i
-      }
+      this._sortNodes()
+      // DOM 업데이트 대상에 드래그 중인 위젯 추가
       target._dirty = true
     }
     return true
@@ -265,6 +276,10 @@
 
   // 크기가 동일한 위젯을 스왑합니다.
   GridStackEngine.prototype._swapOnceWidget = function (toWidget, fromWidget) {
+    // 사이즈가 더 큰 위젯인가?
+    if (toWidget.width < fromWidget.width) {
+      return false
+    }
     // 잠겨있는 위젯인가?
     if (fromWidget.locked) {
       return false
@@ -281,26 +296,27 @@
 
   // 드래그 & 드롭 발생 시 위젯간의 위치와 우선 순위를 변경합니다.
   GridStackEngine.prototype._swapWidgets = function (target, x, y, type) {
-    // 크기가 큰 위젯은 따로 스왑을 관리한다
-    if (target.width > 1 && type === 'drag') {
-      if (this._swapBigWidget(target, x, y)) {
-        this._sortNodes()
-        return true
-      } else {
-        return false
-      }
-    }
-    // 드래그 & 드롭 이벤트 발생 시 범위내에 위젯이 존재하는 경우
-    for (const widget of this.nodes) {
-      // 동일한 위치의 위젯을 변경하는 경우
-      if (widget.x === x && widget.y === y) {
-        if (!this._swapOnceWidget(target, widget)) {
-          return false
+    // 이벤트가 Drag 라면
+    if (type === 'drag') {
+      // 크기가 큰 위젯은 따로 스왑을 관리한다
+      if (target.width > 1) {
+        if (this._swapBigWidget(target, x, y)) {
+          this._sortNodes()
         }
+      } else {
+        // 드래그 & 드롭 이벤트 발생 시 범위내에 위젯이 존재하는 경우
+        for (const widget of this.nodes) {
+          // 동일한 위치의 위젯을 변경하는 경우
+          if (widget.x === x && widget.y === y) {
+            if (!this._swapOnceWidget(target, widget)) {
+              return
+            }
+          }
+        }
+        this._sortNodes()
       }
     }
-    this._sortNodes()
-    return true
+    return
   }
 
   GridStackEngine.prototype._fixCollisions = function (node) {
@@ -332,12 +348,12 @@
     this.nodes = Utils.sort(this.nodes, dir, this.width)
   }
 
+  // 위젯을 상단으로 정렬합니다.
   GridStackEngine.prototype._packNodes = function () {
-    console.log('팩 노드 호출 ??')
-
     // 노드 정렬
     this._sortNodes()
 
+    // 이 부분은 사용하지 않습니다.
     if (this.float) {
       _.each(this.nodes, _.bind(function (n, i) {
         if (n._updating || typeof n._origY == 'undefined' || n.y == n._origY) {
@@ -393,6 +409,7 @@
     node = _.defaults(node || {}, {width: 1, height: 1, x: 0, y: 0})
     node.x = parseInt('' + node.x)
     node.y = parseInt('' + node.y)
+    node.seq = parseInt('' + node.seq)
     node.width = parseInt('' + node.width)
     node.height = parseInt('' + node.height)
     node.autoPosition = node.autoPosition || false
@@ -433,15 +450,10 @@
     var args = Array.prototype.slice.call(arguments, 0)
     args[0] = typeof args[0] === 'undefined' ? [] : [args[0]]
     args[1] = typeof args[1] === 'undefined' ? true : args[1]
-
     if (this._updateCounter) {
       return
     }
-
     var deletedNodes = args[0].concat(this.getDirtyNodes())
-
-    console.log('업데이트 대상 노드 -> ', deletedNodes)
-
     this.onchange(deletedNodes, args[1])
   }
 
@@ -452,60 +464,75 @@
     _.each(this.nodes, function (n) {n._dirty = false })
   }
 
+  // DOM 변경 대상 요소만 필터링하여 리턴합니다.
   GridStackEngine.prototype.getDirtyNodes = function () {
     return _.filter(this.nodes, function (n) { return n._dirty })
   }
 
-  // 이 프로토타입 메서드는 사용하지 않습니다.
+  // 위젯을 추가하거나 생성할 때 위젯을 초기화합니다.
   GridStackEngine.prototype.addNode = function (node, triggerAddEvent) {
     node = this._prepareNode(node)
-
     if (typeof node.maxWidth != 'undefined') { node.width = Math.min(node.width, node.maxWidth) }
     if (typeof node.maxHeight != 'undefined') { node.height = Math.min(node.height, node.maxHeight) }
     if (typeof node.minWidth != 'undefined') { node.width = Math.max(node.width, node.minWidth) }
     if (typeof node.minHeight != 'undefined') { node.height = Math.max(node.height, node.minHeight) }
-
     node._id = ++idSeq
     node._dirty = true
+    // 이 코드는 사용하지 않습니다.
+    // if (node.autoPosition) {
+    // 위젯의 우선순위 정렬
+    // this._sortNodes()
+    // for (var i = 0; ; ++i) {
+    //   var x = i % this.width
+    //   var y = Math.floor(i / this.width)
+    //   if (x + node.width > this.width) {
+    //     continue
+    //   }
+    //   if (!_.find(this.nodes, _.bind(Utils._isAddNodeIntercepted, {x: x, y: y, node: node}))) {
+    //     console.log('이동 가능한 좌표 -> ', x, y)
+    //     node.x = x
+    //     node.y = y
+    //     break
+    //   }
+    // }
+    // }
 
-    if (node.autoPosition) {
-      this._sortNodes()
-
-      for (var i = 0; ; ++i) {
-        var x = i % this.width
-        var y = Math.floor(i / this.width)
-        if (x + node.width > this.width) {
-          continue
-        }
-        if (!_.find(this.nodes, _.bind(Utils._isAddNodeIntercepted, {x: x, y: y, node: node}))) {
-          node.x = x
-          node.y = y
-          break
-        }
-      }
-    }
-
+    // 새로운 위젯 데이터를 DOM 데이터에 추가
     this.nodes.push(node)
     if (typeof triggerAddEvent != 'undefined' && triggerAddEvent) {
       this._addedNodes.push(_.clone(node))
     }
-
-    this._fixCollisions(node)
-    this._packNodes()
+    // 레이아웃 갱신
+    this._updateLayoutFromSeq()
+    // DOM 요소 갱신
     this._notify()
     return node
   }
 
+  // DOM 내부 객체에서 위젯을 제거합니다.
   GridStackEngine.prototype.removeNode = function (node, detachNode) {
     detachNode = typeof detachNode === 'undefined' ? true : detachNode
+    // 삭제대상 노드 리스트에 복사본 저장
     this._removedNodes.push(_.clone(node))
+    // 삭제할 노드의 ID 제거
     node._id = null
+    // 삭제할 노드의 선순위 노드 가져오기
+    const updateTargetNodes = this.nodes.filter(widget => node.seq > widget.seq)
+    // 삭제할 노드의 선순위 노드에 _dirty = false 입력
+    for (const afterWidget of updateTargetNodes) {
+      afterWidget._dirty = false
+    }
+    // 삭제할 노드를 제외한 나머지를 Nodes에 저장
     this.nodes = _.without(this.nodes, node)
-    this._packNodes()
+    // 위젯 정렬
+    this._sortNodes()
+    // 레이아웃 갱신
+    this._updateLayoutFromSeq()
+    // 스타일 변경 요청
     this._notify(node, detachNode)
   }
 
-  /* 위젯이 움직일 수 있는 위치인지 판단합니다. */
+  // 위젯이 움직일 수 있는 위치인지 판단합니다.
   GridStackEngine.prototype.canMoveNode = function (node, x, y, width, height) {
     // 위젯의 위치가 이전과 동일하거나 너비, 높이의 값이 최소 또는 최대치 범위를 벗어난 경우는 불가능
     if (!this.isNodeChangedPosition(node, x, y, width, height)) {
@@ -588,14 +615,14 @@
   }
 
   // 노드에 정의되어 있는 우선순위를 기준으로 레이아웃을 다시 조절합니다.
-  GridStackEngine.prototype._updateLayoutFromSeq = function () {
+  GridStackEngine.prototype._updateLayoutFromSeq = function (newColumns = null) {
     // 위젯을 배치할 행, 열 변수
     let currentCol = 0
     let currentRow = 0
 
     // 레이아웃 컬럼과 위젯 객체
     const nodes = this.nodes
-    const layoutColumns = this.width
+    const layoutColumns = newColumns || this.width
 
     for (let i = 0, max = nodes.length; i < max; i++) {
       // X축 좌표를 저장하는 변수 선언
@@ -622,17 +649,14 @@
           currentX = beforeNode.x + beforeNode.width
         }
       }
-
       // 각 위젯들이 이동할 위치 구하기
       const newX = (currentX !== null && typeof currentX != 'undefined') ? currentX : currentNode.x
       const newY = (currentRow !== null && typeof currentRow != 'undefined') ? currentRow : currentNode.y
-
       // 위젯 정보 업데이트
       currentNode.x = newX
       currentNode.y = newY
       currentNode.lastTriedX = newX
       currentNode.lastTriedY = newY
-
       currentNode._dirty = true
     }
   }
@@ -641,24 +665,20 @@
     if (!this.isNodeChangedPosition(node, x, y, width, height)) {
       return node
     }
-
     // 목적지 좌표가 입력이 안되어 있다면, 현재 좌표를 입력
     if (typeof x !== 'number') { x = node.x }
     if (typeof y !== 'number') { y = node.y }
     if (typeof width !== 'number') { width = node.width }
     if (typeof height !== 'number') { height = node.height }
-
     // 위젯의 최대 너비, 높이가 허용된 범위를 넘었는지 체크
     if (typeof node.maxWidth !== 'undefined') { width = Math.min(width, node.maxWidth) }
     if (typeof node.maxHeight !== 'undefined') { height = Math.min(height, node.maxHeight) }
     if (typeof node.minWidth !== 'undefined') { width = Math.max(width, node.minWidth) }
     if (typeof node.minHeight !== 'undefined') { height = Math.max(height, node.minHeight) }
-
     // 현재 위젯과 이동할 위젯의 좌표가 같으면 (제자리라면 현재 위젯정보 리턴)
     if (node.x === x && node.y === y && node.width === width && node.height === height) {
       return node
     }
-
     // 이동할 위치로 위젯속성 설정
     node.x = x
     node.y = y
@@ -668,7 +688,6 @@
     node.lastTriedY = y
     node.lastTriedWidth = width
     node.lastTriedHeight = height
-
     // 위치 이동이 확정되면 호출되는 부분입니다.
     if (!noPack) {
       // 그리드 레이아웃 정렬 -> 스타일이 변경되기 전에 처리되야한다.
@@ -755,7 +774,7 @@
     var isNested = this.container.closest('.' + opts.itemClass).length > 0
 
     this.opts = _.defaults(opts || {}, {
-      width: parseInt(this.container.attr('data-gs-width')) || 12,
+      width: parseInt(this.container.attr('data-gs-width')) || 6,
       height: parseInt(this.container.attr('data-gs-height')) || 0,
       itemClass: 'grid-stack-item',
       placeholderClass: 'grid-stack-placeholder',
@@ -838,8 +857,7 @@
       _.each(this.nodes, function (n) {
         maxHeight = Math.max(maxHeight, n.y + n.height)
       })
-
-      // 변경된 노드의 요소에 좌표, 너비, 높이값 설정
+      // 변경된 노드의 요소에 좌표, 너비, 높이값 설정 혹은 삭제
       _.each(nodes, function (n) {
         if (detachNode && n._id === null) {
           if (n.el) {
@@ -854,6 +872,7 @@
             .attr('data-gs-height', n.height)
         }
       })
+      // DOM에 반영
       self._updateStyles(maxHeight + 10)
     }, this.opts.float, this.opts.height)
 
@@ -1266,7 +1285,6 @@
       let y = Math.floor((ui.position.top + cellHeight / 2) / cellHeight)
       let width = null
       let height = null
-
       // 리사이즈 최대 너비를 3으로 제한
       if (event.type !== 'drag') {
         const calcWidth = Math.round(ui.size.width / cellWidth)
@@ -1274,14 +1292,12 @@
         // height = Math.round(ui.size.height / cellHeight)
         height = 1
       }
-
       // X좌표가 범위를 벗어나면 return
       if (el.data('inTrashZone') || x < 0 || x >= self.grid.width || y < 0 || (!self.grid.float && y > self.grid.getGridHeight())) {
         if (!node._temporaryRemoved) {
           if (self.opts.removable === true) {
             self._setupRemovingTimeout(el)
           }
-
           x = node._beforeDragX
           y = node._beforeDragY
           //
@@ -1293,10 +1309,8 @@
         }
         // return
       }
-
       if (event.type === 'drag') {
         self._clearRemovingTimeout(el)
-
         if (node._temporaryRemoved) {
           self.grid.addNode(node)
           self.placeholder
@@ -1314,34 +1328,27 @@
           return
         }
       }
-
       // 너비와 높이가 null이고, 리사이즈 이벤트가 아니라면 위젯의 직전 너비값을 불러옴.
       var lastTriedWidth = (width !== null) ? width : node.lastTriedWidth
       var lastTriedHeight = (height !== null) ? height : node.lastTriedHeight
-
       // 현재의 x, y 좌표로 이동이 가능한지 확인 -> 이동이 안되면 moveNode 메서드를 호출하지 않는다.
       if (!self.grid.canMoveNode(node, x, y, width, height) ||
         (node.lastTriedX === x && node.lastTriedY === y &&
           node.lastTriedWidth === lastTriedWidth && node.lastTriedHeight === lastTriedHeight)) {
         return
       }
-
-      // 순위 변경 -> 순위는 드래그 / 드롭이 일어날 때만 발생한다.
-      if (self.grid._swapWidgets(node, x, y, event.type)) {
-        // 이동이 가능하면 마지막 x, y, 너비, 높이 정보를 갱신한다.
-        node.lastTriedX = x
-        node.lastTriedY = y
-        node.lastTriedWidth = width
-        node.lastTriedHeight = height
-
-        // 위젯 이동 수행
-        self.grid.moveNode(node, x, y, width, height)
-
-        // Grid-stack 레이아웃의 너비를 재조정한다.
-        self._updateContainerHeight()
-      }
+      // Drag 이벤트가 발생하였다면 업데이트 대상 위젯의 우선순위를 변경
+      self.grid._swapWidgets(node, x, y, event.type)
+      // 대상 노드의 현재 크기를 마지막 업데이트 정보에 입력
+      node.lastTriedX = x
+      node.lastTriedY = y
+      node.lastTriedWidth = width
+      node.lastTriedHeight = height
+      // 위젯 이동 수행 (드래그, 리사이즈 모두 노드가 움직일 수 있다.)
+      self.grid.moveNode(node, x, y, width, height)
+      // Grid-stack 레이아웃의 너비를 재조정한다.
+      self._updateContainerHeight()
     }
-
     // 위젯을 드래그, 리사이즈 하기위해 클릭 후 마우스를 이동하면 호출된다. 이후에는 dragOrResize 메서드를 호출한다.
     var onStartMoving = function (event, ui) {
       // Placeholder 컨테이너 추가
@@ -1452,11 +1459,13 @@
     el.attr('data-gs-locked', node.locked ? 'yes' : null)
   }
 
+  // 레이아웃에 위젯을 추가할 때 위젯 데이터를 초기화합니다.
   GridStack.prototype._prepareElement = function (el, triggerAddEvent) {
     triggerAddEvent = typeof triggerAddEvent != 'undefined' ? triggerAddEvent : false
     var self = this
+    // 위젯으로 생성할 요소 가져오기
     el = $(el)
-
+    // 엘리먼트에 스타일 추가
     el.addClass(this.opts.itemClass)
     var node = self.grid.addNode({
       x: parseInt(el.attr('data-gs-x'), 10),
@@ -1477,8 +1486,9 @@
       id: el.attr('data-gs-id'),
       _grid: self
     }, triggerAddEvent)
+    // DOM 요소에 위젯 데이터 저장
     el.data('_gridstack_node', node)
-
+    // 초기화된 정보로 위젯초기화
     this._prepareElementsByNode(el, node)
   }
 
@@ -1512,14 +1522,18 @@
     return el
   }
 
+  // DOM을 먼저 추가할 경우 Gridstack 위젯으로 생성합니다.
   GridStack.prototype.makeWidget = function (el) {
+    // 생성된 DOM 요소 객체 가져오기
     el = $(`#${el}`)
-
+    // 요소 초기화
     this._prepareElement(el, true)
+    // ADD 이벤트 발생
     this._triggerAddEvent()
+    // 레이아웃 높이 조절
     this._updateContainerHeight()
+    // 변경여부 알림 이벤트 발생
     this._triggerChangeEvent(true)
-
     return el
   }
 
@@ -1528,19 +1542,24 @@
     return this.grid.canBePlacedWithRespectToHeight(node)
   }
 
+  // 선택된 노드를 DOM에서 삭제합니다. 이후에 레이아웃을 새로 불러옵니다.
   GridStack.prototype.removeWidget = function (el, detachNode) {
+    // 삭제된 노드를 화면에서 제거할 것인가?
     detachNode = typeof detachNode === 'undefined' ? true : detachNode
+    // 삭제 대상 DOM 엘리먼트 선택
     el = $(el)
     var node = el.data('_gridstack_node')
-
-    // For Meteor support: https://github.com/troolee/gridstack.js/pull/272
+    // 노드가 없으면 ? - 분석 필요
     if (!node) {
       node = this.grid.getNodeDataByDOMEl(el)
     }
-
+    // 노드를 그리드 내부객체의 this.nodes에서 제거하고, 레이아웃 갱신
     this.grid.removeNode(node, detachNode)
+    // DOM 객체에 저장된 데이터 제거
     el.removeData('_gridstack_node')
+    // 레이아웃 높이 조절
     this._updateContainerHeight()
+    // DOM 요소 제거
     if (detachNode) {
       el.remove()
     }
@@ -1740,6 +1759,8 @@
     self._updateContainerHeight()
     self._triggerChangeEvent()
 
+    console.log('엘리먼트가 업데이트 되었습니다.')
+
     self.grid.endUpdate()
   }
 
@@ -1761,14 +1782,14 @@
   //   })
   // }
 
-  // 변경된 노드의 좌표를 업데이트 합니다.
-  GridStack.prototype.update = function (el, x, y, width, height) {
-    this._updateElement(el, function (el, node) {
-      x = (x !== null && typeof x != 'undefined') ? x : node.x
-      y = (y !== null && typeof y != 'undefined') ? y : node.y
-      this.grid.moveNode(node, x, y, width, height)
-    })
-  }
+  // 해당 프로토타입은 사용하지 않습니다.
+  // GridStack.prototype.update = function (el, x, y, width, height) {
+  //   this._updateElement(el, function (el, node) {
+  //     x = (x !== null && typeof x != 'undefined') ? x : node.x
+  //     y = (y !== null && typeof y != 'undefined') ? y : node.y
+  //     this.grid.moveNode(node, x, y, width, height)
+  //   })
+  // }
 
   GridStack.prototype.verticalMargin = function (val, noUpdate) {
     if (typeof val == 'undefined') {
@@ -1862,69 +1883,68 @@
   GridStack.prototype._updateNodeWidths = function (newColumns) {
     // 등록된 모든 노드 아이템 정렬
     this.grid._sortNodes()
-
+    this.grid._updateLayoutFromSeq(newColumns)
+    this.grid._notify()
     // 위젯의 X좌표 계산
-    let currentCol = 0
-    let currentRow = 0
-    const nodes = this.grid.nodes
-
-    for (let i = 0, max = nodes.length; i < max; i++) {
-      // X축 좌표를 저장하는 변수 선언
-      let currentX = 0
-      const currentNode = nodes[i]
-
-      // 첫번째 노드라면 currentRow 업데이트 후 위치 지정
-      if (i === 0) {
-        currentCol += currentNode.width
-      } else {
-        // (현재 Row 너비 + 현재 노드 너비) / 그리드 컬럼 갯수 => 아래로 내릴지? 지금 Row에 추가할지?
-        let whetherCheck = Math.floor(newColumns / (currentCol + currentNode.width))
-
-        // 변경 체크가 0일 경우, 다음 Row로 내리는 것으로 판단한다
-        if (whetherCheck === 0) {
-          // 현재 Row 너비 업데이트
-          currentCol = currentNode.width
-          currentRow += 1
-        } else {
-          // 이전노드 좌표 가져오기
-          const beforeNode = nodes[i - 1]
-
-          // 현재 Row 너비 업데이트
-          currentCol += currentNode.width
-
-          // CurrentRow - 1이 새로운 X축 좌표
-          currentX = beforeNode.x + beforeNode.width
-        }
-      }
-
-      // 노드 이동
-      this.update(currentNode.el, currentX, currentRow, currentNode.width, undefined)
-    }
+    // let currentCol = 0
+    // let currentRow = 0
+    // const nodes = this.grid.nodes
+    //
+    // for (let i = 0, max = nodes.length; i < max; i++) {
+    //   // X축 좌표를 저장하는 변수 선언
+    //   let currentX = 0
+    //   const currentNode = nodes[i]
+    //
+    //   // 첫번째 노드라면 currentRow 업데이트 후 위치 지정
+    //   if (i === 0) {
+    //     currentCol += currentNode.width
+    //   } else {
+    //     // (현재 Row 너비 + 현재 노드 너비) / 그리드 컬럼 갯수 => 아래로 내릴지? 지금 Row에 추가할지?
+    //     let whetherCheck = Math.floor(newColumns / (currentCol + currentNode.width))
+    //
+    //     // 변경 체크가 0일 경우, 다음 Row로 내리는 것으로 판단한다
+    //     if (whetherCheck === 0) {
+    //       // 현재 Row 너비 업데이트
+    //       currentCol = currentNode.width
+    //       currentRow += 1
+    //     } else {
+    //       // 이전노드 좌표 가져오기
+    //       const beforeNode = nodes[i - 1]
+    //
+    //       // 현재 Row 너비 업데이트
+    //       currentCol += currentNode.width
+    //
+    //       // CurrentRow - 1이 새로운 X축 좌표
+    //       currentX = beforeNode.x + beforeNode.width
+    //     }
+    //   }
+    //
+    //   // 노드 이동
+    //   this.update(currentNode.el, currentX, currentRow, currentNode.width, undefined)
+    // }
   }
-  /*
-  현재 설정되어있는 Columns 값을 변경합니다. 레이아웃의 컨테이너 크기에 따라 3, 5, 6으로 변경합니다.
-  */
+  // 현재 설정되어있는 Columns 값을 리턴합니다.
+  GridStack.prototype.getGridWidth = function () {
+    return this.grid.width
+  }
+
+  // 현재 설정되어있는 Columns 값을 변경합니다. 레이아웃의 컨테이너 크기에 따라 3, 5, 6으로 변경합니다.
   GridStack.prototype.setGridWidth = function (newColumns, doNotPropagate) {
     // 이전 컬럼 갯수 불러오기
     const oldColumns = this.opts.width
     // 그리드 Stack 클래스 제거
     this.container.removeClass('grid-stack-' + oldColumns)
-
     // 그리드 레이아웃 너비 업데이트
     this.grid.width = newColumns
-
     // 현재 레이아웃 정보 업데이트
     this.opts.width = newColumns
-
     // 보이지 않는 노드는 업데이트하지 않는지 여부
     if (doNotPropagate !== true) {
       // 위젯 너비 업데이트
       this._updateNodeWidths(newColumns)
     }
-
     // 새로운 클래스 추가. 반응형 위젯 크기 설정
     this.container.addClass('grid-stack-' + newColumns)
-
     // Gridstack 높이 조절
     this._updateContainerHeight()
   }
