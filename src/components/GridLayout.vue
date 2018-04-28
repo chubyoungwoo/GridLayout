@@ -101,7 +101,6 @@
             setLayoutColumns(layout, 6)
           }
         } else if (layoutWidth >= 1600 && layoutWidth < 1920) {
-          console.log('? -> ', getLayoutColumn(layout))
           if (getLayoutColumn(layout) !== 5) {
             setLayoutColumns(layout, 5)
           }

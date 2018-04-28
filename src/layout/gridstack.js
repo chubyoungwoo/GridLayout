@@ -239,9 +239,9 @@
     }
     // 변경할 대상 위젯 갯수에 따라 처리과정 분기
     if (toAreaWidget.length === 0) {
-      return false
+      return this._swapEmptyPosition(target, x, y, true)
     } else if (toAreaWidget.length === 1) {
-      // 변경할 대상 위젯 갯수가 1개라면 스왑 (사이즈가 동일한 경우)
+      // 변경할 대상 위젯 갯수가 1개라면 크기 비교
       return this._swapOnceWidget(target, toAreaWidget[0])
     } else {
       // 사이즈 체크
@@ -251,6 +251,22 @@
       }
       // toWidget의 사이즈가 큰 경우 이동금지
       if (toAreaSize > target.width) {
+        return false
+      }
+      // 들어가려는 위치 앞에있는 위젯크기 계산
+      let prevWidgetSize = 0
+      for (var i = 0, max = this.nodes.length; i < max; i++) {
+        const widget = this.nodes[i]
+        if (widget.y > y) {
+          break
+        }
+        // 전달된 좌표의 Y축 좌표와 같아야하며, 위젯의 너비를 더한 X좌표가 전달된 X좌표의 바로 앞이어야함.
+        if (widget.y === y && widget.x + widget.width - 1 < x) {
+          prevWidgetSize += widget.width
+        }
+      }
+      // 앞에있는 위젯 크기와 To 위젯의 크기의 합이 레이아웃의 너비를 넘으면 이동 중지
+      if (target.width + prevWidgetSize > this.width) {
         return false
       }
       // 변경할 대상 위젯 갯수가 1개 초과라면 스왑처리
@@ -266,8 +282,6 @@
         }
         changeWidget._dirty = true
       }
-      // 변경된 시퀀스를 기준으로 정렬
-      this._sortNodes()
       // DOM 업데이트 대상에 드래그 중인 위젯 추가
       target._dirty = true
     }
@@ -294,6 +308,45 @@
     return true
   }
 
+  // 위젯의 크기로 인해 빈공간이 발생할 경우 빈공간의 좌표를 검색합니다.
+  GridStackEngine.prototype._swapEmptyPosition = function (target, x, y, equal = false) {
+    // 전달된 좌표의 바로 앞에있는 위젯 찾기
+    let prevWidget = null
+    let prevWidgets = []
+    for (var i = 0, max = this.nodes.length; i < max; i++) {
+      const widget = this.nodes[i]
+      if (widget.y > y) {
+        break
+      }
+      // 전달된 좌표의 Y축 좌표와 같아야하며, 위젯의 너비를 더한 X좌표가 전달된 X좌표의 바로 앞이어야함.
+      if (widget.y === y && widget.x + widget.width - 1 < x) {
+        prevWidget = widget
+        if (equal) {
+          prevWidgets.push(widget)
+        } else {
+          break
+        }
+      }
+    }
+    // 바로 앞에있는 위젯이 없으면 빈공간이 아니라는 이야기 (정렬 순서 상 바로앞에 위젯이 없으면 빈공간이 생길 수 없다.)
+    if (!prevWidget) {
+      return false
+    }
+    // 크기가 동일해야만 이동이 가능한 경우
+    if (equal) {
+      let prevWidgetSize = 0
+      for (var i = 0, max = prevWidgets.length; i < max; i++) {
+        prevWidgetSize += prevWidgets[i].width
+      }
+      if (this.width < prevWidgetSize + target.width) {
+        return false
+      }
+    }
+    // 우선순위를 직전 위젯 우선순위 + 0.1로 조절
+    target.seq = prevWidget.seq + 0.1
+    return true
+  }
+
   // 드래그 & 드롭 발생 시 위젯간의 위치와 우선 순위를 변경합니다.
   GridStackEngine.prototype._swapWidgets = function (target, x, y, type) {
     // 이벤트가 Drag 라면
@@ -302,21 +355,25 @@
       if (target.width > 1) {
         if (this._swapBigWidget(target, x, y)) {
           this._sortNodes()
+          return
         }
       } else {
         // 드래그 & 드롭 이벤트 발생 시 범위내에 위젯이 존재하는 경우
         for (const widget of this.nodes) {
           // 동일한 위치의 위젯을 변경하는 경우
           if (widget.x === x && widget.y === y) {
-            if (!this._swapOnceWidget(target, widget)) {
+            if (this._swapOnceWidget(target, widget)) {
+              this._sortNodes()
               return
             }
           }
         }
-        this._sortNodes()
+        // 범위내에 존재하지 않는 위치인 경우 (빈공간에 드래그를 한 경우)
+        if (this._swapEmptyPosition(target, x, y)) {
+          this._sortNodes()
+        }
       }
     }
-    return
   }
 
   GridStackEngine.prototype._fixCollisions = function (node) {
@@ -634,7 +691,6 @@
       } else {
         // (현재 Row 너비 + 현재 노드 너비) / 그리드 컬럼 갯수 => 아래로 내릴지? 지금 Row에 추가할지?
         let whetherCheck = Math.floor(layoutColumns / (currentCol + currentNode.width))
-
         // 변경 체크가 0일 경우, 다음 Row로 내리는 것으로 판단한다
         if (whetherCheck === 0) {
           // 현재 Row 너비 업데이트
