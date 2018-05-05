@@ -307,7 +307,6 @@
         }
       }
     }
-    console.log('앞에 있는 위젯 -> ', prevWidgets)
     // 바로 앞에있는 위젯이 없으면 빈공간이 아니라는 이야기 (정렬 순서 상 바로앞에 위젯이 없으면 빈공간이 생길 수 없다.)
     if (prevWidgets.length <= 0) {
       return false
@@ -338,7 +337,6 @@
             return
           }
         }
-        console.log('지금 그 공간은 비어있을수도 ...')
         // 범위내에 존재하지 않는 위치인 경우 (빈공간에 드래그를 한 경우)
         if (this._swapEmptyPosition(target, x, y)) {
           this._sortNodes()

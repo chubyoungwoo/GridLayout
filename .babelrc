@@ -1,4 +1,21 @@
 {
-  "presets": ["env"],
-  "plugins": ["transform-object-rest-spread"]
+  "presets": [
+    [
+      "env",
+      {
+        "modules": false,
+        "targets": {
+          "browsers": [
+            "> 1%",
+            "last 2 versions",
+            "not ie <= 8"
+          ]
+        }
+      }
+    ]
+  ],
+  "plugins": [
+    "transform-object-rest-spread",
+    "external-helpers"
+  ]
 }

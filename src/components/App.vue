@@ -27,10 +27,7 @@
     data () {
       return {
         locked: false,
-        options: {
-          cellHeight: '300px'
-        },
-        widgets: []
+        options: {}
       }
     },
     computed: {
@@ -41,95 +38,90 @@
         set (value) {
           this.locked = value
         }
+      },
+      widgets () {
+        return [
+          {
+            i: 'widget_0',
+            s: 0,
+            w: 3,
+            title: '0',
+            isLock: false,
+            isMove: true,
+            isResize: true
+          },
+          {
+            i: 'widget_1',
+            s: 1,
+            w: 3,
+            title: '1',
+            isLock: false,
+            isMove: true,
+            isResize: true
+          },
+          {
+            i: 'widget_2',
+            s: 2,
+            title: '2',
+            isLock: false,
+            isMove: true,
+            isResize: true
+          },
+          {
+            i: 'widget_3',
+            s: 3,
+            title: '3',
+            isLock: false,
+            isMove: true,
+            isResize: true
+          },
+          {
+            i: 'widget_4',
+            s: 4,
+            title: '4',
+            isLock: false,
+            isMove: true,
+            isResize: true
+          },
+          {
+            i: 'widget_5',
+            s: 5,
+            title: '5',
+            isLock: false,
+            isMove: true,
+            isResize: true
+          },
+          {
+            i: 'widget_6',
+            s: 6,
+            title: '6',
+            isLock: false,
+            isMove: true,
+            isResize: true
+          },
+          {
+            i: 'widget_7',
+            s: 7,
+            title: '7',
+            isLock: false,
+            isMove: true,
+            isResize: true
+          },
+          {
+            i: 'widget_8',
+            s: 8,
+            title: '8',
+            isLock: false,
+            isMove: true,
+            isResize: true
+          }
+        ]
       }
     },
     beforeCreate () {},
-    created () {
-      // 서버에서 위젯의 정보를 불러왔다고 가정
-      const loadWidgets = [
-        {
-          i: 'widget_0',
-          s: 0,
-          w: 3,
-          title: '0',
-          isLock: false,
-          isMove: true,
-          isResize: true
-        },
-        {
-          i: 'widget_1',
-          s: 1,
-          w: 3,
-          title: '1',
-          isLock: false,
-          isMove: true,
-          isResize: true
-        },
-        {
-          i: 'widget_2',
-          s: 2,
-          title: '2',
-          isLock: false,
-          isMove: true,
-          isResize: true
-        },
-        {
-          i: 'widget_3',
-          s: 3,
-          title: '3',
-          isLock: false,
-          isMove: true,
-          isResize: true
-        },
-        {
-          i: 'widget_4',
-          s: 4,
-          title: '4',
-          isLock: false,
-          isMove: true,
-          isResize: true
-        },
-        {
-          i: 'widget_5',
-          s: 5,
-          title: '5',
-          isLock: false,
-          isMove: true,
-          isResize: true
-        },
-        {
-          i: 'widget_6',
-          s: 6,
-          title: '6',
-          isLock: false,
-          isMove: true,
-          isResize: true
-        },
-        {
-          i: 'widget_7',
-          s: 7,
-          title: '7',
-          isLock: false,
-          isMove: true,
-          isResize: true
-        },
-        {
-          i: 'widget_8',
-          s: 8,
-          title: '8',
-          isLock: false,
-          isMove: true,
-          isResize: true
-        }
-      ]
-
-      // 불러온 정보를 모델에 추가
-      this.widgets = loadWidgets
-    },
+    created () {},
     beforeMount () {},
-    mounted () {
-      console.log('App mounted !!')
-    },
+    mounted () {},
     beforeUpdate () {},
     updated () {},
     activated () {},

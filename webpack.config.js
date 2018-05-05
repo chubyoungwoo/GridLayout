@@ -1,19 +1,20 @@
 const path = require('path')
 const Webpack = require('webpack')
 const HtmlPlugin = require('html-webpack-plugin')
+const UglifyJsPlugin = require('uglifyjs-webpack-plugin')
 const ExtractTextPlugin = require('extract-text-webpack-plugin')
 
 module.exports = {
-  mode: 'development',
-  // entry: 웹팩이 파일을 읽어들이기 시작하는 부분. Gridstack과 Gridstack.jQueryUI 모듈을 layout.js로 통합한다.
+  mode: process.env.NODE_ENV,
   entry: {
-    layout: './src/index.js'
+    gridLayout: './src/index.js'
   },
-  // output: 웹팩의 빌드 결과를 출력하는 부분.
   output: {
-    path: path.resolve(__dirname, './dist'),      // 파일의 출력 경로
-    filename: '[name].js',                        // 출력파일 경로
-    publicPath: '/'                               // 웹서버에 위치할 경로
+    path: path.resolve(__dirname, './dist'),
+    filename: '[name].js',
+    publicPath: '/',
+    library: 'gridLayout',
+    libraryTarget: 'umd'
   },
   module: {
     rules: [
@@ -52,15 +53,29 @@ module.exports = {
       {
         test: /\.scss$/,
         use: ExtractTextPlugin.extract({
-          fallback: 'style-loader',
-          use: ['css-loader', 'sass-loader']
+          use: [
+            {
+              loader: 'css-loader',
+              options: {minimize: true}
+            },
+            {
+              loader: 'sass-loader',
+              options: {minimize: true}
+            }
+          ],
+          fallback: 'style-loader'
         })
       },
       {
         test: /\.css$/,
         use: ExtractTextPlugin.extract({
-          fallback: 'style-loader',
-          use: ['css-loader']
+          use: [
+            {
+              loader: 'css-loader',
+              options: {minimize: true}
+            }
+          ],
+          fallback: 'style-loader'
         })
       }
     ]
@@ -71,14 +86,24 @@ module.exports = {
       template: './src/index.html',
       inject: true
     }),
+    new UglifyJsPlugin({
+      test: /\.js($|\?)/i,
+      uglifyOptions: {
+        output: {
+          comments: false,
+          beautify: false
+        },
+        compress: true
+      }
+    }),
+    new ExtractTextPlugin({
+      filename: '[name].css'
+    }),
     new Webpack.ProvidePlugin({
       '_': 'lodash',
       '$': 'jquery',
       'jQuery': 'jquery',
       'window.jQuery': 'jquery'
-    }),
-    new ExtractTextPlugin({
-      filename: 'style/[name].css'
     })
   ],
   resolve: {
@@ -95,6 +120,6 @@ module.exports = {
     port: 9999
   },
   optimization: {
-    minimize: false
+    minimize: true
   }
 }

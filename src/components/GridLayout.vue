@@ -75,6 +75,8 @@
         this.options.minWidth = 1
         this.options.maxWidth = 3
         this.options.cellHeight = '300px'
+        // 애니메이션 추가
+        this.options.animate = true
         // Grid layout 초기화
         createGridLayout('.grid-stack', this.options)
         // 그리드 사이즈 조절

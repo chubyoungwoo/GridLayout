@@ -1,0 +1,450 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.grid-stack-item-content {
+  display: flex;
+  flex-direction: column;
+
+  border: 1px solid black;
+}
+
+.grid-stack-item-content-toolbar {
+  display: flex;
+  padding: 10px;
+  box-sizing: padding-box;
+}
+
+
+
+/*# sourceMappingURL=GridLayout.vue.map */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+
+  padding: 10px;
+}
+
+.btn_container {
+  display: flex;
+
+  padding: 0;
+  margin-bottom: 10px;
+}
+
+.btn_container button {
+  margin-right: 10px;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.grid-widget-modal[data-v-47211694] {
+  width: 100%;
+  height: 100%;
+}
+
+.grid-widget-maximum-background[data-v-47211694] {
+  position: fixed;
+  z-index: 9998;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, .5);
+  display: table;
+}
+
+.grid-widget-maximum[data-v-47211694] {
+  display: flex;
+  flex-direction: column;
+  width: calc(100% - 42px);
+  height: 100%;
+  margin: 0 auto;
+  padding: 20px;
+
+  border: 1px solid lime;
+  background-color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .33);
+}
+
+.grid-widget-maximum-tool[data-v-47211694] {
+  display: flex;
+  border: 1px solid blue;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.grid-widget-maximum-content[data-v-47211694] {
+  flex-grow: 1;
+  border: 1px solid red;
+}
+
+
